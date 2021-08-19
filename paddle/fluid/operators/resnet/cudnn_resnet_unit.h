@@ -60,22 +60,6 @@ class ResNetUnitGradOpMaker : public framework::SingleGradOpMaker<T> {
  protected:
   void Apply(GradOpPtr<T> op) const override {
     op->SetType("resnet_unit_grad");
-    op->SetInput("X", this->Input("X"));
-    op->SetInput("Y", this->Output("Y"));
-    op->SetInput(framework::GradVarName("Y"), this->OutputGrad("Y"));
-
-    op->SetInput("Scale", this->Input("Scale"));
-    op->SetInput("Bias", this->Input("Bias"));
-    op->SetInput("SavedMean", this->Output("SavedMean"));
-    op->SetInput("SavedVariance", this->Output("SavedVariance"));
-    op->SetInput("ReserveSpace", this->Output("ReserveSpace"));
-
-    op->SetAttrMap(this->Attrs());
-
-    op->SetOutput(framework::GradVarName("X"), this->InputGrad("X"));
-    op->SetOutput(framework::GradVarName("Z"), this->InputGrad("Z"));
-    op->SetOutput(framework::GradVarName("Scale"), this->InputGrad("Scale"));
-    op->SetOutput(framework::GradVarName("Bias"), this->InputGrad("Bias"));
   }
 };
 

@@ -28,6 +28,12 @@ class ResNetUnitKernel<platform::CUDADeviceContext, T>
     PADDLE_ENFORCE_EQ(
         platform::is_gpu_place(ctx.GetPlace()), true,
         platform::errors::PreconditionNotMet("It must use CUDAPlace."));
+
+    // 1. Conv
+
+    // 2. BN
+
+    // 3. scale + bias + add + relu
   }
 };
 
