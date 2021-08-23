@@ -29,16 +29,20 @@ class CuDNNFusionOp {
  public:
   explicit CuDNNFusionOp(cudnnFusedOps_t op_id) : plan_created_(false) {
     // New 'fused op' descriptor creation
-    dynload::cudnnCreateFusedOpsPlan(&op_, op_id);
-    dynload::cudnnCreateFusedOpsConstParamPack(&op_const_params_, op_id);
-    dynload::cudnnCreateFusedOpsVariantParamPack(&op_variant_params_, op_id);
+    PADDLE_ENFORCE_CUDA_SUCCESS(dynload::cudnnCreateFusedOpsPlan(&op_, op_id));
+    PADDLE_ENFORCE_CUDA_SUCCESS(
+        dynload::cudnnCreateFusedOpsConstParamPack(&op_const_params_, op_id));
+    PADDLE_ENFORCE_CUDA_SUCCESS(dynload::cudnnCreateFusedOpsVariantParamPack(
+        &op_variant_params_, op_id));
   }
 
   ~CuDNNFusionOp() {
     // New 'fused op' descriptor destruction
-    dynload::cudnnDestroyFusedOpsVariantParamPack(op_variant_params_);
-    dynload::cudnnDestroyFusedOpsConstParamPack(op_const_params_);
-    dynload::cudnnDestroyFusedOpsPlan(op_);
+    PADDLE_ENFORCE_CUDA_SUCCESS(
+        dynload::cudnnDestroyFusedOpsVariantParamPack(op_variant_params_));
+    PADDLE_ENFORCE_CUDA_SUCCESS(
+        dynload::cudnnDestroyFusedOpsConstParamPack(op_const_params_));
+    PADDLE_ENFORCE_CUDA_SUCCESS(dynload::cudnnDestroyFusedOpsPlan(op_));
   }
 
   // Launch op
@@ -48,15 +52,17 @@ class CuDNNFusionOp {
         platform::errors::Fatal(
             "CuDNNFusionOp exec requested without a valid 'plan', need: "
             << "<set const params>, GetWorkspaceSizeBytes(), Execute()."));
-    dynload::cudnnFusedOpsExecute(cudnn_handle, op_, op_variant_params_);
+    PADDLE_ENFORCE_CUDA_SUCCESS(
+        dynload::cudnnFusedOpsExecute(cudnn_handle, op_, op_variant_params_));
   }
   // Set a 'fused op' const param pack attribute given a descriptor (an opaque
   // pointer) 'T'.
   template <typename T>
   void SetOpConstParamDesc(cudnnFusedOpsConstParamLabel_t param_label,
                            T *param_ptr) {
-    dynload::cudnnSetFusedOpsConstParamPackAttribute(op_const_params_,
-                                                     param_label, param_ptr);
+    PADDLE_ENFORCE_CUDA_SUCCESS(
+        dynload::cudnnSetFusedOpsConstParamPackAttribute(
+            op_const_params_, param_label, param_ptr));
     // Setting a 'const param pack' value invalidates the plan
     plan_created_ = false;
   }
@@ -73,7 +79,8 @@ class CuDNNFusionOp {
   template <typename T>
   void SetOpConstParamAttr(cudnnFusedOpsConstParamLabel_t param_label,
                            T param) {
-    dynload::cudnnSetFusedOpsConstParamPackAttribute(op_const_params_,
+    PADDLE_ENFORCE_CUDA_SUCCESS(
+      dynload::cudnnSetFusedOpsConstParamPackAttribute(op_const_params_,
                                                      param_label, &param);
     // Setting a 'const param pack' value invalidates the plan
     plan_created_ = false;
@@ -92,8 +99,9 @@ class CuDNNFusionOp {
   template <typename T>
   void SetOpVariantParamAttrPtr(cudnnFusedOpsVariantParamLabel_t param_label,
                                 T *param_ptr) {
-    dynload::cudnnSetFusedOpsVariantParamPackAttribute(op_variant_params_,
-                                                       param_label, param_ptr);
+    PADDLE_ENFORCE_CUDA_SUCCESS(
+        dynload::cudnnSetFusedOpsVariantParamPackAttribute(
+            op_variant_params_, param_label, param_ptr));
   }
   // Set multiple 'fused op' const param pack attributes given a reference to a
   // param 'T'.
@@ -108,8 +116,8 @@ class CuDNNFusionOp {
   // Execute().
   size_t GetWorkspaceSizeInBytes(cudnnHandle_t cudnn_handle) {
     size_t workspace_bytes = 0U;
-    dynload::cudnnMakeFusedOpsPlan(cudnn_handle, op_, op_const_params_,
-                                   &workspace_bytes);
+    PADDLE_ENFORCE_CUDA_SUCCESS(dynload::cudnnMakeFusedOpsPlan(
+        cudnn_handle, op_, op_const_params_, &workspace_bytes));
     plan_created_ = true;
     return workspace_bytes;
   }

@@ -80,6 +80,7 @@ void ResNetUnitOpMaker::Make() {
   AddAttr<int>("stride", "").SetDefault(1);
   AddAttr<int>("pad", "").SetDefault(0);
   AddAttr<int>("dilate", "").SetDefault(1);
+  AddAttr<int>("group", "").SetDefault(1);
   AddAttr<float>("momentum", "").SetDefault(0.9);
   AddAttr<float>("epsilon", "").SetDefault(1e-5);
   AddAttr<bool>("fused_add", "").SetDefault(false);

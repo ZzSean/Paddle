@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "paddle/fluid/operators/resnet/cudnn_resnet_unit.h"
+#include "paddle/fluid/operators/resnet/cudnn_resnet_unit_impl.cu.h"
 
 namespace paddle {
 namespace operators {
@@ -30,7 +31,9 @@ class ResNetUnitKernel<platform::CUDADeviceContext, T>
         platform::errors::PreconditionNotMet("It must use CUDAPlace."));
 
     // 1. Conv
-
+    CuDNNNormConvolutionOp<T> op = new CuDNNNormConvolutionOp<T>(true);
+    op.Init(ctx);
+    op.Forward(ctx);
     // 2. BN
 
     // 3. scale + bias + add + relu
