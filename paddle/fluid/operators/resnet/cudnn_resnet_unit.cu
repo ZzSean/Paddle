@@ -30,10 +30,36 @@ class ResNetUnitKernel<platform::CUDADeviceContext, T>
         platform::is_gpu_place(ctx.GetPlace()), true,
         platform::errors::PreconditionNotMet("It must use CUDAPlace."));
 
+    // temp tensor for intermediate results
+    Tensor *conv_out;
+    Tensor *sum;
+    Tensor *sum_of_squares;
+    Tensor *tmp1;
+    Tensor *tmp2;
+    Tensor *tmp3;
+    Tensor *tmp4;
+    Tensor *tmp5;
+    Tensor *tmp6;
+
+    auto *output = ctx.Output<Tensor>("Y");
+    // No implementations of this op exist with T = double, so output stats
+    // pointers will always be float.
+    T *conv_out_ptr = nullptr;
+    float *sum_ptr = nullptr;
+    float *sum_of_squares_ptr = nullptr;
+    auto output_shape = framework::vectorize<int>(output->dims());
+    int output_channel = output_shape.back();
+    conv_out_ptr =
+        conv_out->mutable_data<float>(output->dims(), output->place());
+    sum_ptr = sum->mutable_data<float>(framework::make_ddim({output_channel}),
+                                       output->place());
+    sum_of_squares_ptr = sum_of_squares->mutable_data<float>(
+        framework::make_ddim({output_channel}), output->place());
+
     // 1. Conv
-    CuDNNNormConvolutionOp<T> op = new CuDNNNormConvolutionOp<T>(true);
-    op.Init(ctx);
-    op.Forward(ctx);
+    CuDNNNormConvolutionOp<T> conv_op = new CuDNNNormConvolutionOp<T>(true);
+    conv_op.Init(ctx);
+    conv_op.Forward(ctx, conv_out_ptr, sum_ptr, sum_of_squares_ptr);
     // 2. BN
 
     // 3. scale + bias + add + relu

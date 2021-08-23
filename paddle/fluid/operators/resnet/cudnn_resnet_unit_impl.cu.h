@@ -77,30 +77,6 @@ class CuDNNNormConvolutionOp {
     // size required.
     GetTempSize(ctx);
 
-    // Create an equivalent BatchNormParam for the held instance of the
-    // NhwcBatchNormOp
-    // Not needed for Backward
-    bn_param_.eps = 0.0;
-    // Not needed for Backward since running mean/var are updated by forward
-    // kernel.
-    bn_param_.momentum = 0.f;
-    // Finalize kernel can respond to fix_gamma = true
-    bn_param_.fix_gamma = false;
-    // use_global_stats will only be true for inference-only graphs where
-    // backward is not needed
-    bn_param_.use_global_stats = false;
-    // Should have no effect on NHWCBatchNorm::Backward()
-    bn_param_.output_mean_var = true;
-    // NormConvolution only supported for NHWC layouts
-    PADDLE_ENFORCE_EQ(effective_layout, mshadow::kNHWC);
-    bn_param_.axis = 3;
-    // Only cudnn NormConvolution is implemented
-    bn_param_.cudnn_off = false;
-    // Copy act_type value from NormalizeConvolutionParam -> BatchNormParam
-    if (param_.act_type.has_value()) bn_param_.act_type = param_.act_type;
-    bn_param_.bn_group = 1;
-    bn_param_.xbuf_ptr = 0U;
-
     if (!param_.no_norm) {
       int in_features = static_cast<int>(Features(in_shapes[norm_conv::kData]));
       FinalizeInit(param_, Shape1(in_features), ctx);
@@ -109,7 +85,8 @@ class CuDNNNormConvolutionOp {
 #endif  // CUDNN_VERSION >= 7600
   }
 
-  void Forward(const platform::ExecutionContext &ctx) {
+  void Forward(const platform::ExecutionContext &ctx, T *output_ptr,
+               float *sum_ptr, float *sum_of_squares_ptr) {
     auto &dev_ctx = ctx.template device_context<platform::CUDADeviceContext>();
     auto handle = dev_ctx.cudnn_handle();
     auto workspace_handle = dev_ctx.cudnn_workspace_handle();
@@ -120,11 +97,11 @@ class CuDNNNormConvolutionOp {
                                 : ctx.Input<Tensor>("FilterZ");
     auto *scale = ctx.Input<Tensor>("Scale");
     auto *bias = ctx.Input<Tensor>("Bias");
-    auto *output = ctx.Output<Tensor>("Y");
     T *input_ptr = input->data<T>();
     T *filter_ptr = filter->data<T>();
-    T *output_ptr = output->data<T>();
-    workspace_handle.ReallocWorkspace(fwd_workspace_byte_);
+    if (fwd_workspace_byte_ > workspace_handle::WorkspaceSize()) {
+      workspace_handle.ReallocWorkspace(fwd_workspace_byte_);
+    }
     auto workspace_ptr = workspace_handle.allocation_;
 
 #if CUDNN_VERSION < 8000
@@ -135,22 +112,6 @@ class CuDNNNormConvolutionOp {
     if (fprop_eq_scale_bias_ptr_type_ != CUDNN_PTR_NULL) {
       equiv_scale_ptr = scale->data<T>();
       equiv_bias_ptr = bias->data<T>();
-    }
-
-    // No implementations of this op exist with T = double, so output stats
-    // pointers will always be float.
-    Tensor *sum;
-    Tensor *sum_of_squares;
-    float *sum_ptr = nullptr;
-    float *sum_of_squares_ptr = nullptr;
-    auto output_shape = framework::vectorize<int>(output->dims());
-    int output_channel =
-        format_ == CUDNN_TENSOR_NHWC ? output_shape.back() : output_shape[1];
-    if (fwd_op_plan_output_stats_) {
-      sum_ptr = sum->mutable_data<float>(framework::make_ddim({output_channel}),
-                                         input.place());
-      sum_of_squares_ptr = sum_of_squares->mutable_data<float>(
-          framework::make_ddim({output_channel}), input.place());
     }
 
     // This operator does not support output blending as specified by alpha or
@@ -413,12 +374,6 @@ class CuDNNNormConvolutionOp {
   // equiv_bias.
   cudnnFusedOpsPointerPlaceHolder_t wgrad_eq_scale_bias_ptr_type_;
 #endif
-
-  // An instance of the equivalent Batchnorm operation, suitable for calling
-  // Backward() on.
-  NhwcBatchNormOp<DType> nhwc_bn_op;
-  // The BatchNormParam associated with the NHWCBatchNormOp instance
-  BatchNormParam bn_param_;
 
   // 1x1 conv dgrad as gemm
   bool dgrad_as_gemm_;
