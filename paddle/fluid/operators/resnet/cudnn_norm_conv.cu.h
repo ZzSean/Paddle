@@ -60,28 +60,13 @@ class CuDNNNormConvolutionOp {
 #else
     auto cudnn_fwd_compute_type = platform::CudnnDataType<float>::type;
     dtype_ = platform::CudnnDataType<T>::type;
-    // For float16 input type beta, gamma, mean, and average are stored in
-    // float32.
-    // For other input types, these parameters have the same type as input
-    dtype_param_;
-
     format_ = CUDNN_TENSOR_NHWC;
-
-    // Double check to make sure this class supports the operation
-    if (!Supports())
-      LOG(FATAL) << "Unexpected unsupported use of NormConvolution op.";
 
     InitDescriptors(ctx);
 
     // Have cuDNN make a 'plan' for the fused op, returning the temp workspace
     // size required.
     GetTempSize(ctx);
-
-    if (!param_.no_norm) {
-      int in_features = static_cast<int>(Features(in_shapes[norm_conv::kData]));
-      FinalizeInit(param_, Shape1(in_features), ctx);
-    }
-
 #endif  // CUDNN_VERSION >= 7600
   }
 
@@ -375,15 +360,8 @@ class CuDNNNormConvolutionOp {
   cudnnFusedOpsPointerPlaceHolder_t wgrad_eq_scale_bias_ptr_type_;
 #endif
 
-  // 1x1 conv dgrad as gemm
-  bool dgrad_as_gemm_;
-  bool dgrad_as_gemm_debug_;
-
   // Specifies activation parameters: relu
   cudnnActivationDescriptor_t activation_desc_;
-
-  // data members to support finalize function
-  int dtype_param_;
 
   bool first_input_ = true;
 

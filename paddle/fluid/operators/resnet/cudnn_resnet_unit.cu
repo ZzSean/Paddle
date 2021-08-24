@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "paddle/fluid/operators/resnet/cudnn_norm_conv.cu.h"
 #include "paddle/fluid/operators/resnet/cudnn_resnet_unit.h"
-#include "paddle/fluid/operators/resnet/cudnn_resnet_unit_impl.cu.h"
 
 namespace paddle {
 namespace operators {
