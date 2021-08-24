@@ -1,4 +1,4 @@
-// Copyright (c) 2020 PaddlePaddle Authors. All Rights Reserved.
+// Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#pragma once
+
+#include "paddle/fluid/operators/resnet/cudnn_bn_stats_finalize.cu.h"
 #include "paddle/fluid/operators/resnet/cudnn_norm_conv.cu.h"
 #include "paddle/fluid/operators/resnet/cudnn_resnet_unit.h"
 
@@ -31,38 +34,55 @@ class ResNetUnitKernel<platform::CUDADeviceContext, T>
         platform::errors::PreconditionNotMet("It must use CUDAPlace."));
 
     // temp tensor for intermediate results
-    Tensor *conv_out;
-    Tensor *sum;
-    Tensor *sum_of_squares;
-    Tensor *tmp1;
-    Tensor *tmp2;
-    Tensor *tmp3;
-    Tensor *tmp4;
-    Tensor *tmp5;
-    Tensor *tmp6;
+    // norm conv
+    Tensor *conv_out, *sum, *sum_of_squares;
+    // bn stats finalize
+    Tensor *saved_mean, *save_invstd, *running_mean, *running_var, *equiv_scale,
+        *equiv_bias;
 
     auto *output = ctx.Output<Tensor>("Y");
     // No implementations of this op exist with T = double, so output stats
     // pointers will always be float.
-    T *conv_out_ptr = nullptr;
-    float *sum_ptr = nullptr;
-    float *sum_of_squares_ptr = nullptr;
+    // T *conv_out_ptr = nullptr;
+    // float *sum_ptr = nullptr;
+    // float *sum_of_squares_ptr = nullptr;
+    // float *running_mean_ptr = nullptr;
+    // float *running_var_ptr = nullptr;
+    // float *saved_mean_ptr = nullptr;
+    // float *saved_invstd_ptr = nullptr;
+    // T *equiv_scale_ptr = nullptr;
+    // T *equiv_bias_ptr = nullptr;
     auto output_shape = framework::vectorize<int>(output->dims());
     int output_channel = output_shape.back();
-    conv_out_ptr =
-        conv_out->mutable_data<float>(output->dims(), output->place());
-    sum_ptr = sum->mutable_data<float>(framework::make_ddim({output_channel}),
-                                       output->place());
-    sum_of_squares_ptr = sum_of_squares->mutable_data<float>(
-        framework::make_ddim({output_channel}), output->place());
+    auto param_shape = framework::make_ddim({output_channel});
+    auto place = output->place();
+
+#define MALLOC_AND_GET_PTR(TR, Dtype, Shape, Place) \
+  Dtype *TR##_ptr = TR->mutable_data<Dtype>(Shape, Place);
+
+    MALLOC_AND_GET_PTR(conv_out, T, output->dims(), place)
+    MALLOC_AND_GET_PTR(sum, float, param_shape, place)
+    MALLOC_AND_GET_PTR(sum_of_squares, float, param_shape, place)
+    MALLOC_AND_GET_PTR(saved_mean, float, param_shape, place)
+    MALLOC_AND_GET_PTR(saved_invstd, float, param_shape, place)
+    MALLOC_AND_GET_PTR(running_mean, float, param_shape, place)
+    MALLOC_AND_GET_PTR(running_var, float, param_shape, place)
+    MALLOC_AND_GET_PTR(equiv_scale, T, param_shape, place)
+    MALLOC_AND_GET_PTR(equiv_bias, T, param_shape, place)
 
     // 1. Conv
     CuDNNNormConvolutionOp<T> conv_op = new CuDNNNormConvolutionOp<T>(true);
     conv_op.Init(ctx);
     conv_op.Forward(ctx, conv_out_ptr, sum_ptr, sum_of_squares_ptr);
     // 2. BN
+    CuDNNBNStatsFinalizeOp<T> bn_op = new CuDNNBNStatsFinalizeOp<T>();
+    bn_op.Init(ctx);
+    bn_op.Forward(ctx, sum_ptr, sum_of_squares_ptr, saved_mean_ptr,
+                  saved_invstd_ptr, running_mean_ptr, running_var_ptr,
+                  equiv_scale_ptr, equiv_bias_ptr);
 
-    // 3. scale + bias + add + relu
+// 3. scale + bias + add + relu
+#undef MALLOC_AND_GET_PTR
   }
 };
 

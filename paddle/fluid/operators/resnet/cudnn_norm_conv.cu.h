@@ -29,29 +29,41 @@ class CuDNNNormConvolutionOp {
         bwd_wgrad_op_(CUDNN_FUSED_SCALE_BIAS_ACTIVATION_WGRAD),
 #endif
         first_input_(first_input) {
-    PADDLE_ENFORCE_CUDA_SUCCESS(cudnnCreateTensorDescriptor(&in_desc_));
     PADDLE_ENFORCE_CUDA_SUCCESS(
-        cudnnCreateTensorDescriptor(&equiv_scale_bias_desc_));
-    PADDLE_ENFORCE_CUDA_SUCCESS(cudnnCreateTensorDescriptor(&out_desc_));
-    PADDLE_ENFORCE_CUDA_SUCCESS(cudnnCreateTensorDescriptor(&in_stats_desc_));
-    PADDLE_ENFORCE_CUDA_SUCCESS(cudnnCreateTensorDescriptor(&out_stats_desc_));
-    PADDLE_ENFORCE_CUDA_SUCCESS(cudnnCreateFilterDescriptor(&filter_desc_));
-    PADDLE_ENFORCE_CUDA_SUCCESS(cudnnCreateConvolutionDescriptor(&conv_desc_));
+        dynload::cudnnCreateTensorDescriptor(&in_desc_));
     PADDLE_ENFORCE_CUDA_SUCCESS(
-        cudnnCreateActivationDescriptor(&activation_desc_));
+        dynload::cudnnCreateTensorDescriptor(&equiv_scale_bias_desc_));
+    PADDLE_ENFORCE_CUDA_SUCCESS(
+        dynload::cudnnCreateTensorDescriptor(&out_desc_));
+    PADDLE_ENFORCE_CUDA_SUCCESS(
+        dynload::cudnnCreateTensorDescriptor(&in_stats_desc_));
+    PADDLE_ENFORCE_CUDA_SUCCESS(
+        dynload::cudnnCreateTensorDescriptor(&out_stats_desc_));
+    PADDLE_ENFORCE_CUDA_SUCCESS(
+        dynload::cudnnCreateFilterDescriptor(&filter_desc_));
+    PADDLE_ENFORCE_CUDA_SUCCESS(
+        dynload::cudnnCreateConvolutionDescriptor(&conv_desc_));
+    PADDLE_ENFORCE_CUDA_SUCCESS(
+        dynload::cudnnCreateActivationDescriptor(&activation_desc_));
   }
 
   ~CuDNNNormConvolutionOp() {
-    PADDLE_ENFORCE_CUDA_SUCCESS(cudnnDestroyTensorDescriptor(in_desc_));
     PADDLE_ENFORCE_CUDA_SUCCESS(
-        cudnnDestroyTensorDescriptor(equiv_scale_bias_desc_));
-    PADDLE_ENFORCE_CUDA_SUCCESS(cudnnDestroyTensorDescriptor(out_desc_));
-    PADDLE_ENFORCE_CUDA_SUCCESS(cudnnDestroyTensorDescriptor(in_stats_desc_));
-    PADDLE_ENFORCE_CUDA_SUCCESS(cudnnDestroyTensorDescriptor(out_stats_desc_));
-    PADDLE_ENFORCE_CUDA_SUCCESS(cudnnDestroyFilterDescriptor(filter_desc_));
-    PADDLE_ENFORCE_CUDA_SUCCESS(cudnnDestroyConvolutionDescriptor(conv_desc_));
+        dynload::cudnnDestroyTensorDescriptor(in_desc_));
     PADDLE_ENFORCE_CUDA_SUCCESS(
-        cudnnDestroyActivationDescriptor(activation_desc_));
+        dynload::cudnnDestroyTensorDescriptor(equiv_scale_bias_desc_));
+    PADDLE_ENFORCE_CUDA_SUCCESS(
+        dynload::cudnnDestroyTensorDescriptor(out_desc_));
+    PADDLE_ENFORCE_CUDA_SUCCESS(
+        dynload::cudnnDestroyTensorDescriptor(in_stats_desc_));
+    PADDLE_ENFORCE_CUDA_SUCCESS(
+        dynload::cudnnDestroyTensorDescriptor(out_stats_desc_));
+    PADDLE_ENFORCE_CUDA_SUCCESS(
+        dynload::cudnnDestroyFilterDescriptor(filter_desc_));
+    PADDLE_ENFORCE_CUDA_SUCCESS(
+        dynload::cudnnDestroyConvolutionDescriptor(conv_desc_));
+    PADDLE_ENFORCE_CUDA_SUCCESS(
+        dynload::cudnnDestroyActivationDescriptor(activation_desc_));
   }
 
   void Init(const framework::ExecutionContext &ctx) {
