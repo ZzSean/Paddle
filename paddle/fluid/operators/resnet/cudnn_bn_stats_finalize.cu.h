@@ -116,7 +116,9 @@ class CuDNNBNStatsFinalizeOp {
   }
 
   void Forward(const platform::ExecutionContext &ctx, float *sum_ptr,
-               float *sum_of_squares_ptr) {
+               float *sum_of_squares_ptr, float *saved_mean_ptr,
+               float *saved_invstd_ptr, float *running_mean_ptr,
+               float *running_var_ptr, T *equiv_scale_ptr, T *equiv_bias_ptr) {
 #if CUDNN_VERSION < 8000
     LOG(FATAL) << "cuDNN version 8.0 or later is required.";
 #else
