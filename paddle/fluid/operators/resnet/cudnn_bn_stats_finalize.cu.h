@@ -115,7 +115,7 @@ class CuDNNBNStatsFinalizeOp {
         dynload::cudnnDestroyTensorDescriptor(in_desc_));
   }
 
-  void Forward(const platform::ExecutionContext &ctx, float *sum_ptr,
+  void Forward(const framework::ExecutionContext &ctx, float *sum_ptr,
                float *sum_of_squares_ptr, float *saved_mean_ptr,
                float *saved_invstd_ptr, float *running_mean_ptr,
                float *running_var_ptr, T *equiv_scale_ptr, T *equiv_bias_ptr) {
@@ -157,10 +157,10 @@ class CuDNNBNStatsFinalizeOp {
 #endif  // CUDNN_VERSION >= 7600
   }
 
-  void Backward(const platform::ExecutionContext &ctx) {}
+  void Backward(const framework::ExecutionContext &ctx) {}
 
  private:
-  void InitDescriptors(const platform::ExecutionContext &ctx) {
+  void InitDescriptors(const framework::ExecutionContext &ctx) {
     auto *output = ctx.Output<Tensor>("Y");
     auto output_shape = framework::vectorize<int>(output->dims());
     int c = output_shape.back();

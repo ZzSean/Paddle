@@ -84,7 +84,7 @@ void ResNetUnitOpMaker::Make() {
   AddAttr<float>("momentum", "").SetDefault(0.9);
   AddAttr<float>("epsilon", "").SetDefault(1e-5);
   AddAttr<bool>("fused_add", "").SetDefault(false);
-  AddAttr<bool>("has_shorcut", "").SetDefault(false);
+  AddAttr<bool>("has_shortcut", "").SetDefault(false);
   AddAttr<std::string>("act_type", "The activation type to be fused.")
       .SetDefault("relu");
   AddComment(R"DOC(

@@ -82,7 +82,7 @@ class CuDNNNormConvolutionOp {
 #endif  // CUDNN_VERSION >= 7600
   }
 
-  void Forward(const platform::ExecutionContext &ctx, T *output_ptr,
+  void Forward(const framework::ExecutionContext &ctx, T *output_ptr,
                float *sum_ptr, float *sum_of_squares_ptr) {
     auto &dev_ctx = ctx.template device_context<platform::CUDADeviceContext>();
     auto handle = dev_ctx.cudnn_handle();
@@ -131,10 +131,10 @@ class CuDNNNormConvolutionOp {
 #endif  // CUDNN_VERSION < 7600
   }
 
-  void Backward(const platform::ExecutionContext &ctx) {}
+  void Backward(const framework::ExecutionContext &ctx) {}
 
  private:
-  void InitDescriptors(const platform::ExecutionContext &ctx) {
+  void InitDescriptors(const framework::ExecutionContext &ctx) {
 #if CUDNN_VERSION < 8000
     LOG(FATAL) << "cuDNN version 8.0 or later is required.";
 #else
@@ -306,7 +306,7 @@ class CuDNNNormConvolutionOp {
 #endif  // CUDNN_VERSION < 7600
   }
 
-  void GetTempSize(const platform::ExecutionContext &ctx) {
+  void GetTempSize(const framework::ExecutionContext &ctx) {
 #if CUDNN_VERSION < 8000
     LOG(FATAL) << "cuDNN version 8.0 or later is required.";
 #else

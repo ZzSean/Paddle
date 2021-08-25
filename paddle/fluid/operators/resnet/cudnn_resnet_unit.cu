@@ -81,7 +81,16 @@ class ResNetUnitKernel<platform::CUDADeviceContext, T>
                   saved_invstd_ptr, running_mean_ptr, running_var_ptr,
                   equiv_scale_ptr, equiv_bias_ptr);
 
-// 3. scale + bias + add + relu
+    // 3. scale + bias + add + relu
+    bool has_shortcut = ctx.Attr<bool>("has_shortcut");
+    bool fused_add = ctx.Attr<bool>("fused_add");
+    if (has_shortcut) {
+      // 3.1 Conv for second input
+      // 3.2 BN for second input
+    }
+    CuDNNScaleBiasAddReluOp<T> sbar_op = new CuDNNScaleBiasAddReluOp<T>();
+    sbar_op.Init(ctx);
+    sbar_op.Forward(ctx);
 #undef MALLOC_AND_GET_PTR
   }
 };
