@@ -40,8 +40,9 @@ class CuDNNBNStatsFinalizeOp {
         dynload::cudnnCreateTensorDescriptor(&in_desc_));
   }
 
-  void Init(const framework::ExecutionContext &ctx) {
-    InitDescriptors(ctx);
+  void Init(const framework::ExecutionContext &ctx,
+            const std::vector<int> &output_shape) {
+    InitDescriptors(ctx, output_shape);
 
 #if CUDNN_VERSION >= 8000
     // Set up the 'Const Param Pack' for the BNForwardFinalizeStatisticsTraining
@@ -160,9 +161,8 @@ class CuDNNBNStatsFinalizeOp {
   void Backward(const framework::ExecutionContext &ctx) {}
 
  private:
-  void InitDescriptors(const framework::ExecutionContext &ctx) {
-    auto *output = ctx.Output<Tensor>("Y");
-    auto output_shape = framework::vectorize<int>(output->dims());
+  void InitDescriptors(const framework::ExecutionContext &ctx,
+                       const std::vector<int> &output_shape) {
     int c = output_shape.back();
     cudnnTensorFormat_t format = CUDNN_TENSOR_NHWC;
     PADDLE_ENFORCE_CUDA_SUCCESS(dynload::cudnnSetTensor4dDescriptor(

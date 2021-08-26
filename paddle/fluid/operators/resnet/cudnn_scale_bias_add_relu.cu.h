@@ -80,6 +80,7 @@ class CuDNNScaleBiasAddReluOp {
 
   void Init(const framework::ExecutionContext &ctx,
             const std::vector<int> &out_shape, const std::vector<int> &x_shape,
+            const std::vector<int> &bitmask_shape,
             const std::vector<int> &z_shape = {}) {
 #if CUDNN_VERSION < 8000
     LOG(FATAL) << "cuDNN version 8.0 or later is required.";
@@ -88,15 +89,15 @@ class CuDNNScaleBiasAddReluOp {
     fused_add_ = ctx.Attr<bool>("fused_add");
     dtype_ = platform::CudnnDataType<T>::type;
     format_ = CUDNN_TENSOR_NHWC;
-    InitDescriptors(ctx, out_shape, x_shape, z_shape);
+    InitDescriptors(ctx, out_shape, bitmask_shape, x_shape, z_shape);
     GetTempSize(ctx);
 #endif
   }
 
-  void Forward(const framework::ExecutionContext &ctx, float *sum_ptr,
-               float *sum_of_squares_ptr, float *saved_mean_ptr,
-               float *saved_invstd_ptr, float *running_mean_ptr,
-               float *running_var_ptr, T *equiv_scale_ptr, T *equiv_bias_ptr) {
+  void Forward(const framework::ExecutionContext &ctx, T *x_ptr, T *x_scale_ptr,
+               T *x_bias_ptr, T *out_ptr, int32_t *bitmask_ptr,
+               T *z_ptr = nullptr, T *z_scale_ptr = nullptr,
+               T *z_bias_ptr = nullptr) {
     auto &dev_ctx = ctx.template device_context<platform::CUDADeviceContext>();
     auto handle = dev_ctx.cudnn_handle();
     auto workspace_handle = dev_ctx.cudnn_workspace_handle();
@@ -119,7 +120,7 @@ class CuDNNScaleBiasAddReluOp {
       fwd_op_.SetOpVariantParamAttrPtr(CUDNN_PTR_BN_Z_EQBIAS, z_bias_ptr);
     } else {
       if (fused_add_) {
-        fwd_op_.SetOpVariantParamAttrPtr(CUDNN_PTR_ZDATA, data_z_ptr);
+        fwd_op_.SetOpVariantParamAttrPtr(CUDNN_PTR_ZDATA, z_ptr);
       }
     }
 
@@ -142,11 +143,13 @@ class CuDNNScaleBiasAddReluOp {
  private:
   void InitDescriptors(const framework::ExecutionContext &ctx,
                        const std::vector<int> &out_shape,
+                       const std::vector<int> &bitmask_shape,
                        const std::vector<int> &x_shape,
                        const std::vector<int> &z_shape = {}) {
 #if CUDNN_VERSION < 8000
     LOG(FATAL) << "cuDNN version 8.0 or later is required.";
 #else
+    auto bitmask_stride = GetStrides(bitmask_shape);
     auto x_stride = GetStrides(x_shape);
     auto z_stride = GetStrides(z_shape);
     auto out_stride = GetStrides(out_shape);
@@ -225,13 +228,13 @@ class CuDNNScaleBiasAddReluOp {
                                   equiv_z_scale_bias_desc_);
     }
 
-    int C = input_channel;
-    int64_t NHW = std::accmulate(out_shape.beigin(), out_shape.end() - 1, 1,
-     std::multiplies<int>());
-    int32_t C_int32Elems = ((C + 63) & ~63) / 32;
-    int32_t NHW_int32Elems = (NHW + 31) & ~31;
-    std::vector<int> bitmask_shape = {NHW_int32Elems, C_int32Elems, 1};
-    std::vector<int> bitmask_stride = {C_int32Elems, 1, 1};
+    // int C = input_channel;
+    // int64_t NHW = std::accmulate(out_shape.beigin(), out_shape.end() - 1, 1,
+    //  std::multiplies<int>());
+    // int32_t C_int32Elems = ((C + 63) & ~63) / 32;
+    // int32_t NHW_int32Elems = (NHW + 31) & ~31;
+    // std::vector<int> bitmask_shape = {NHW_int32Elems, C_int32Elems, 1};
+    // std::vector<int> bitmask_stride = {C_int32Elems, 1, 1};
     PADDLE_ENFORCE_CUDA_SUCCESS(dynload::cudnnSetTensorNdDescriptor(
                                 out_relu_bitmask_desc_,
                                 CUDNN_DATA_INT32,

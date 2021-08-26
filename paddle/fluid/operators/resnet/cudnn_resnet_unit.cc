@@ -22,22 +22,22 @@ void ResNetUnitOp::InferShape(framework::InferShapeContext *ctx) const {
   // check input
   OP_INOUT_CHECK(ctx->HasInput("X"), "Input", "X", "ResNetUnitOp");
   OP_INOUT_CHECK(ctx->HasInput("FilterX"), "Input", "FilterX", "ResNetUnitOp");
+  if (ctx->Attr<bool>("fused_add")) {
+    OP_INOUT_CHECK(ctx->HasInput("Z"), "Input", "Z", "ResNetUnitOp");
+  }
+  if (ctx->Attr<bool>("has_shortcut")) {
+    OP_INOUT_CHECK(ctx->HasInput("FilterZ"), "Input", "FilterZ",
+                   "ResNetUnitOp");
+  }
 
   // check output
   OP_INOUT_CHECK(ctx->HasOutput("Y"), "Output", "Y", "ResNetUnitOp");
 
   // TODO(zhangzheng): check dims for input and output
   const auto x_dims = ctx->GetInputDim("X");
-  PADDLE_ENFORCE_GE(x_dims.size(), 2, platform::errors::InvalidArgument(
+  PADDLE_ENFORCE_EQ(x_dims.size(), 4, platform::errors::InvalidArgument(
                                           "ShapeError: the dimensions of input "
-                                          "must greater than or equal to 2."
-                                          "But received: the shape of input "
-                                          "= [%s], the dimension of input = "
-                                          "[%d]",
-                                          x_dims, x_dims.size()));
-  PADDLE_ENFORCE_LE(x_dims.size(), 5, platform::errors::InvalidArgument(
-                                          "ShapeError: the dimensions of input "
-                                          "must smaller than or equal to 5."
+                                          "must equal to 5."
                                           "But received: the shape of input "
                                           "= [%s], the dimension of input = "
                                           "[%d]",
@@ -49,17 +49,8 @@ void ResNetUnitOp::InferShape(framework::InferShapeContext *ctx) const {
 framework::OpKernelType ResNetUnitOp::GetExpectedKernelType(
     const framework::ExecutionContext &ctx) const {
   auto input_data_type = OperatorWithKernel::IndicateVarDataType(ctx, "X");
-
-  PADDLE_ENFORCE_EQ(input_data_type, ctx.Input<Tensor>("Scale")->type(),
-                    platform::errors::InvalidArgument(
-                        "The data type of Scale shoule be same as input type"));
-  PADDLE_ENFORCE_EQ(input_data_type, ctx.Input<Tensor>("Bias")->type(),
-                    platform::errors::InvalidArgument(
-                        "The data type of Bias shoule be same as input type"));
-
   framework::LibraryType library = framework::LibraryType::kPlain;
   framework::DataLayout layout = framework::DataLayout::kAnyLayout;
-
   return framework::OpKernelType(input_data_type, ctx.GetPlace(), layout,
                                  library);
 }
@@ -69,13 +60,26 @@ void ResNetUnitOpMaker::Make() {
   AddInput("FilterX", "The filter tensor of input 1");
   AddInput("Z", "The input 2 tensor");
   AddInput("FilterZ", "The filter tensor of input 2");
-  AddInput("Scale",
-           "Scale is a 1-dimensional tensor of size C "
-           "that is applied to the input before conv, always be 1 now");
-  AddInput("Bias",
-           "Bias is a 1-dimensional tensor of size C "
-           "that is applied to the input before conv, always be 0 now");
-  AddOutput("Y", "result after normalization");
+  AddOutput("Y", "The result of the resnet unit");
+  AddOutput("ConvX", "The output of x after conv");
+  AddOutput("SumX", "The sum of conv_x");
+  AddOutput("SqSumX", "The square of sum of conv_x");
+  AddOutput("SavedMeanX", "The output of saved mean of x");
+  AddOutput("SavedInvstdX", "The output of saved invstd of x");
+  AddOutput("RunningMeanX", "The output of running mean of x");
+  AddOutput("RunningVarX", "The output of running var of x");
+  AddOutput("EqScaleX", "The output of equiv scale of x");
+  AddOutput("EqBiasX", "The output of equiv bias of x");
+  AddOutput("ConvZ", "The output of z after conv");
+  AddOutput("SumZ", "The sum of conv_z");
+  AddOutput("SqSumZ", "The square of sum of conv_z");
+  AddOutput("SavedMeanZ", "The output of saved mean of z");
+  AddOutput("SavedInvstdZ", "The output of saved invstd of z");
+  AddOutput("RunningMeanZ", "The output of running mean of z");
+  AddOutput("RunningVarZ", "The output of running var of z");
+  AddOutput("EqScaleZ", "The output of equiv scale of z");
+  AddOutput("EqBiasZ", "The output of equiv bias of z");
+  AddOutput("BitMask", "The bitmask");
   AddAttr<int>("elem_count", "");
   AddAttr<int>("stride", "").SetDefault(1);
   AddAttr<int>("pad", "").SetDefault(0);

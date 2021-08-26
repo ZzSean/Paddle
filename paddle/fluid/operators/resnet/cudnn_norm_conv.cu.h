@@ -23,12 +23,12 @@ using dynload = platform::dynload;
 template <typename T>
 class CuDNNNormConvolutionOp {
  public:
-  explicit CuDNNNormConvolutionOp(bool first_input)
+  CuDNNNormConvolutionOp()
 #if CUDNN_VERSION >= 8000
       : fwd_op_(CUDNN_FUSED_SCALE_BIAS_ACTIVATION_CONV_BNSTATS),
         bwd_wgrad_op_(CUDNN_FUSED_SCALE_BIAS_ACTIVATION_WGRAD),
 #endif
-        first_input_(first_input) {
+  {
     PADDLE_ENFORCE_CUDA_SUCCESS(
         dynload::cudnnCreateTensorDescriptor(&in_desc_));
     PADDLE_ENFORCE_CUDA_SUCCESS(
@@ -66,7 +66,10 @@ class CuDNNNormConvolutionOp {
         dynload::cudnnDestroyActivationDescriptor(activation_desc_));
   }
 
-  void Init(const framework::ExecutionContext &ctx) {
+  void Init(const framework::ExecutionContext &ctxp,
+            const std::vector<int> &input_shape,
+            const std::vector<int> &filter_shape,
+            const std::vector<int> &output_shape) {
 #if CUDNN_VERSION < 8000
     LOG(FATAL) << "cuDNN version 8.0 or later is required.";
 #else
@@ -74,7 +77,7 @@ class CuDNNNormConvolutionOp {
     dtype_ = platform::CudnnDataType<T>::type;
     format_ = CUDNN_TENSOR_NHWC;
 
-    InitDescriptors(ctx);
+    InitDescriptors(ctx, input_shape, filter_shape, output_shape);
 
     // Have cuDNN make a 'plan' for the fused op, returning the temp workspace
     // size required.
@@ -82,20 +85,12 @@ class CuDNNNormConvolutionOp {
 #endif  // CUDNN_VERSION >= 7600
   }
 
-  void Forward(const framework::ExecutionContext &ctx, T *output_ptr,
-               float *sum_ptr, float *sum_of_squares_ptr) {
+  void Forward(const framework::ExecutionContext &ctx, T *input_ptr,
+               T *filter_ptr, T *output_ptr, float *sum_ptr,
+               float *sum_of_squares_ptr) {
     auto &dev_ctx = ctx.template device_context<platform::CUDADeviceContext>();
     auto handle = dev_ctx.cudnn_handle();
     auto workspace_handle = dev_ctx.cudnn_workspace_handle();
-
-    auto *input =
-        first_input_ ? ctx.Input<Tensor>("X") : ctx.Input<Tensor>("Z");
-    auto *filter = first_input_ ? ctx.Input<Tensor>("FilterX")
-                                : ctx.Input<Tensor>("FilterZ");
-    auto *scale = ctx.Input<Tensor>("Scale");
-    auto *bias = ctx.Input<Tensor>("Bias");
-    T *input_ptr = input->data<T>();
-    T *filter_ptr = filter->data<T>();
     if (fwd_workspace_byte_ > workspace_handle::WorkspaceSize()) {
       workspace_handle.ReallocWorkspace(fwd_workspace_byte_);
     }
@@ -104,20 +99,11 @@ class CuDNNNormConvolutionOp {
 #if CUDNN_VERSION < 8000
     LOG(FATAL) << "cuDNN version 8.0 or later is required.";
 #else
-    T *equiv_scale_ptr = nullptr;
-    T *equiv_bias_ptr = nullptr;
-    if (fprop_eq_scale_bias_ptr_type_ != CUDNN_PTR_NULL) {
-      equiv_scale_ptr = scale->data<T>();
-      equiv_bias_ptr = bias->data<T>();
-    }
-
     // This operator does not support output blending as specified by alpha or
     // beta.
     // Set data input pointers in op instance
     fwd_op_.SetOpVariantParamAttrPtr(CUDNN_PTR_XDATA, input_ptr);
     fwd_op_.SetOpVariantParamAttrPtr(CUDNN_PTR_WDATA, filter_ptr);
-    fwd_op_.SetOpVariantParamAttrPtr(CUDNN_PTR_BN_EQSCALE, equiv_scale_ptr);
-    fwd_op_.SetOpVariantParamAttrPtr(CUDNN_PTR_BN_EQBIAS, equiv_bias_ptr);
     // Set workspace input pointer in op instance
     fwd_op_.SetOpVariantParamAttrPtr(CUDNN_PTR_WORKSPACE, workspace_ptr);
     fwd_op_.SetOpVariantParamAttrPtr(
@@ -134,13 +120,16 @@ class CuDNNNormConvolutionOp {
   void Backward(const framework::ExecutionContext &ctx) {}
 
  private:
-  void InitDescriptors(const framework::ExecutionContext &ctx) {
+  void InitDescriptors(const framework::ExecutionContext &ctx,
+                       const std::vector<int> &input_shape,
+                       const std::vector<int> &filter_shape,
+                       const std::vector<int> &output_shape) {
 #if CUDNN_VERSION < 8000
     LOG(FATAL) << "cuDNN version 8.0 or later is required.";
 #else
     // We'll need normconv fprop if we're doing a normalization, activation, or
     // outputting stats.
-    bool fused_normconv_fprop_needed = true;
+    bool fused_normconv_fprop_needed = false;
     // We only supply a null pointer if we think cuDNN can then fall back to the
     // conventional fprop.
     fprop_eq_scale_bias_ptr_type_ =
@@ -179,15 +168,7 @@ class CuDNNNormConvolutionOp {
     auto stride = ctx.Attr<int>("stride");
     auto dilate = ctx.Attr<int>("dilate");
     auto group = ctx.Attr<int>("group");
-    auto *filter = first_input_ ? ctx.Input<Tensor>("FilterX")
-                                : ctx.Input<Tensor>("FilterZ");
-    auto *input =
-        first_input_ ? ctx.Input<Tensor>("X") : ctx.Input<Tensor>("Z");
-    auto *output = ctx.Input<Tensor>("Y");
-    auto filter_shape = filter->dims();
-    auto input_shape = framework::vectorize<int>(input->dims());
     auto input_stride = GetStrides(input_shape);
-    auto output_shape = framework::vectorize<int>(output->dims());
     auto output_stride = GetStrides(output_shape);
     // set conv desc
     PADDLE_ENFORCE_CUDA_SUCCESS(cudnnSetConvolution2dDescriptor(
@@ -374,9 +355,6 @@ class CuDNNNormConvolutionOp {
 
   // Specifies activation parameters: relu
   cudnnActivationDescriptor_t activation_desc_;
-
-  bool first_input_ = true;
-
 #if CUDNN_VERSION >= 8000
   // New normalized convolution forward fused-op
   CuDNNFusionOp fwd_op_;
