@@ -207,22 +207,22 @@ class CuDNNScaleBiasAddReluOp {
     std::vector<int> equiv_scale_stride = {input_channel, 1, 1, 1};
 
     PADDLE_ENFORCE_CUDA_SUCCESS(dynload::cudnnSetTensorNdDescriptor(
-      equiv_scale_bias_desc_,
-                                  dtype_,
-                                  static_cast<int>(equiv_scale_shape.size()),
-                                  equiv_scale_shape.data(),
-                                  equiv_scale_stride.data());
+        equiv_scale_bias_desc_,
+        dtype_,
+        static_cast<int>(equiv_scale_shape.size()),
+        equiv_scale_shape.data(),
+        equiv_scale_stride.data());
     fwd_op_.SetOpConstParamDesc(CUDNN_PARAM_BN_EQSCALEBIAS_DESC,
      equiv_scale_bias_desc_);
     if (has_shortcut_) {
       PADDLE_ENFORCE_CUDA_SUCCESS(dynload::cudnnSetTensorNdDescriptor(
-        equiv_z_scale_bias_desc_,
-                                    dtype_,
-                                    static_cast<int>(equiv_scale_shape.size()),
-                                    equiv_scale_shape.data(),
-                                    equiv_scale_stride.data());
+          equiv_z_scale_bias_desc_,
+          dtype_,
+          static_cast<int>(equiv_scale_shape.size()),
+          equiv_scale_shape.data(),
+          equiv_scale_stride.data());
       fwd_op_.SetOpConstParamDesc(CUDNN_PARAM_BN_Z_EQSCALEBIAS_DESC,
-       equiv_z_scale_bias_desc_);
+                                  equiv_z_scale_bias_desc_);
     }
 
     int C = input_channel;
@@ -233,11 +233,11 @@ class CuDNNScaleBiasAddReluOp {
     std::vector<int> bitmask_shape = {NHW_int32Elems, C_int32Elems, 1};
     std::vector<int> bitmask_stride = {C_int32Elems, 1, 1};
     PADDLE_ENFORCE_CUDA_SUCCESS(dynload::cudnnSetTensorNdDescriptor(
-      out_relu_bitmask_desc_,
-                                          CUDNN_DATA_INT32,
-                                          3,
-                                          bitmask_shape.data(),
-                                          bitmask_stride.data()));
+                                out_relu_bitmask_desc_,
+                                CUDNN_DATA_INT32,
+                                3,
+                                bitmask_shape.data(),
+                                bitmask_stride.data()));
 
     // Set activation descriptor, default is no activation
     cudnnActivationMode_t mode = CUDNN_ACTIVATION_IDENTITY;
@@ -265,9 +265,9 @@ class CuDNNScaleBiasAddReluOp {
       fwd_op_.SetOpConstParamDesc(CUDNN_PARAM_ZDESC, in_z_desc_);
     }
     fwd_op_.SetOpConstParamDesc(CUDNN_PARAM_ACTIVATION_BITMASK_DESC,
-     out_relu_bitmask_desc_);
+                                out_relu_bitmask_desc_);
     fwd_op_.SetOpConstParamAttr(CUDNN_PARAM_BN_MODE,
-     CUDNN_BATCHNORM_SPATIAL_PERSISTENT);
+                                CUDNN_BATCHNORM_SPATIAL_PERSISTENT);
     fwd_op_.SetOpConstParamDesc(CUDNN_PARAM_YDESC, out_desc_);
 #endif
   }
