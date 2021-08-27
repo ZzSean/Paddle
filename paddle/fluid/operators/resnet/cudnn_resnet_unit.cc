@@ -61,6 +61,7 @@ void ResNetUnitOpMaker::Make() {
   AddInput("Z", "The input 2 tensor");
   AddInput("FilterZ", "The filter tensor of input 2");
   AddOutput("Y", "The result of the resnet unit");
+  AddOutput("BitMask", "The bitmask");
   AddOutput("ConvX", "The output of x after conv");
   AddOutput("SumX", "The sum of conv_x");
   AddOutput("SqSumX", "The square of sum of conv_x");
@@ -79,7 +80,6 @@ void ResNetUnitOpMaker::Make() {
   AddOutput("RunningVarZ", "The output of running var of z");
   AddOutput("EqScaleZ", "The output of equiv scale of z");
   AddOutput("EqBiasZ", "The output of equiv bias of z");
-  AddOutput("BitMask", "The bitmask");
   AddAttr<int>("elem_count", "");
   AddAttr<int>("stride", "").SetDefault(1);
   AddAttr<int>("pad", "").SetDefault(0);
