@@ -76,7 +76,6 @@ class ResNetUnitKernel<platform::CUDADeviceContext, T>
     int64_t ele_count =
         std::accumulate(output_shape.begin(), output_shape.end(), 1,
                         std::multiplies<int>()) / output_channel;
-    T *conv_out_x_ptr = const_cast<T *>(conv_out_x->data<T>());
 
     MALLOC_AND_GET_PTR(conv_out_x, T, place)
     MALLOC_AND_GET_PTR(sum_x, float, place)

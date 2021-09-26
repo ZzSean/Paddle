@@ -21,13 +21,17 @@ namespace operators {
 using Tensor = framework::Tensor;
 namespace dynload = platform::dynload;
 
+template <typename T>
+using ScalingParamType = typename platform::CudnnDataType<T>::ScalingParamType;
+
 #if CUDNN_VERSION >= 8000
 template <typename T>
 class CudnnNormConvolutionOp {
  public:
   CudnnNormConvolutionOp()
-      : fwd_op_(CUDNN_FUSED_SCALE_BIAS_ACTIVATION_CONV_BNSTATS) {}
-      : bwd_wgrad_op_(CUDNN_FUSED_SCALE_BIAS_ACTIVATION_WGRAD) {}
+      : fwd_op_(CUDNN_FUSED_SCALE_BIAS_ACTIVATION_CONV_BNSTATS),
+        back_conv_dgrad_algo_(CUDNN_CONVOLUTION_BWD_DATA_ALGO_1),
+        bwd_wgrad_op_(CUDNN_FUSED_SCALE_BIAS_ACTIVATION_WGRAD) {}
   ~CudnnNormConvolutionOp() {}
 
   void Init(const platform::CUDADeviceContext &ctx,
@@ -114,8 +118,9 @@ class CudnnNormConvolutionOp {
                   bwd_workspace_byte_, 
                   &beta, 
                   in_desc_,
-                  input_grad_ptr));},
-      workspace_size);
+                  input_grad_ptr));
+        },
+        bwd_workspace_byte_s);
   }
 
  private:
@@ -172,10 +177,11 @@ class CudnnNormConvolutionOp {
     fwd_op_.SetOpConstParamAttr(CUDNN_PARAM_BN_MODE, CUDNN_BATCHNORM_SPATIAL);
     bwd_wgrad_op_.SetOpConstParamAttr(CUDNN_PARAM_BN_MODE, CUDNN_BATCHNORM_SPATIAL);
 
-    PADDLE_ENFORCE_CUDA_SUCCESS(
-        platform::dynload::cudnnGetConvolutionBackwardDataWorkspaceSize(handle,
-                  filter_desc_, out_desc_, conv_desc_, in_desc_, 
-                  back_conv_dgrad_algo_, &bwd_dgrad_conv_workspace_byte_));
+    auto handle = ctx.cudnn_handle();
+    // PADDLE_ENFORCE_CUDA_SUCCESS(
+    //     platform::dynload::cudnnGetConvolutionBackwardDataWorkspaceSize(
+    //             handle, filter_desc_, out_desc_, conv_desc_, in_desc_,
+    //             back_conv_dgrad_algo_, &bwd_dgrad_conv_workspace_byte_));
   }
 
   void GetWorkspaceSize(const platform::CUDADeviceContext &ctx) {
@@ -189,7 +195,7 @@ class CudnnNormConvolutionOp {
   size_t fwd_workspace_byte_ = 0;
   size_t bwd_wgrad_workspace_byte_ = 0;
   size_t bwd_dgrad_conv_workspace_byte_ = 0;
-  cudnnConvolutionBwdDataAlgo_t back_conv_dgrad_algo_ = CUDNN_CONVOLUTION_BWD_DATA_ALGO_1;
+  cudnnConvolutionBwdDataAlgo_t back_conv_dgrad_algo_;
 
   cudnnDataType_t dtype_;
   cudnnDataType_t cudnn_fwd_compute_type_;
